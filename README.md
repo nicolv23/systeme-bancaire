@@ -1,54 +1,33 @@
-``   # 🏦 Système Bancaire — Projet en C  Un système bancaire minimaliste en ligne de commande, développé en C, permettant de gérer un solde chiffré, d’enregistrer un historique des opérations et d’effectuer des transactions simples.  ---  ## ✨ Fonctionnalités  - 🔐 Solde chiffré dans `solde.enc`  - 🧾 Historique des opérations dans `historique.txt`  - ➕ Dépôt d’argent  - ➖ Retrait avec validation du solde  - 📊 Consultation du solde  - 🛡 Gestion d’erreurs (fichiers manquants, entrées invalides, etc.)  ---  ## 📁 Structure du projet   ``
+# Système bancaire en C
 
-systeme-bancaire/│├── banque\_secure.c # Code source principal├── solde.enc # Solde chiffré├── historique.txt # Historique des opérations└── README.md # Documentation du projet
+Ce projet est une application en ligne de commande permettant de gérer un solde bancaire, d’effectuer des dépôts et retraits, et d’enregistrer un historique des opérations. Les données sont conservées dans des fichiers locaux.
 
-Code
+## Fonctionnalités
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   ---  ## 🚀 Compilation  Compiler le programme avec :  ```bash  gcc banque_secure.c -o banque   `
+- Consultation du solde
+- Dépôt d’argent
+- Retrait avec vérification du solde
+- Historique des opérations
+- Stockage du solde dans un fichier chiffré
 
-▶️ Exécution
-------------
+## Structure du projet
 
-Lancer le programme :
+- banque_secure.c       # Code source
+- solde.enc             # Solde chiffré
+- historique.txt        # Historique des opérations
+- README.md             # Documentation
 
-bash
+## Compilation
 
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   ./banque   `
+- gcc banque_secure.c -o banque
 
-Le menu interactif permet :
+## Exécution
 
-1.  Consulter le solde
-    
-2.  Déposer
-    
-3.  Retirer
-    
-4.  Quitter
-    
+- ./banque
 
-🔒 Sécurité
------------
+## Améliorations possibles
 
-Le solde est stocké dans un fichier chiffré (solde.enc) via un chiffrement simple.Ce projet a un objectif pédagogique : illustrer la persistance sécurisée de données sans complexité excessive.
-
-📝 Historique des opérations
-----------------------------
-
-Chaque transaction est ajoutée à historique.txt sous la forme :
-
-Code
-
-Plain textANTLR4BashCC#CSSCoffeeScriptCMakeDartDjangoDockerEJSErlangGitGoGraphQLGroovyHTMLJavaJavaScriptJSONJSXKotlinLaTeXLessLuaMakefileMarkdownMATLABMarkupObjective-CPerlPHPPowerShell.propertiesProtocol BuffersPythonRRubySass (Sass)Sass (Scss)SchemeSQLShellSwiftSVGTSXTypeScriptWebAssemblyYAMLXML`   [2025-01-17 14:32] Dépôt : +50$  [2025-01-17 14:35] Retrait : -20$   `
-
-🛠 Améliorations possibles
---------------------------
-
-*   Ajouter un Makefile
-    
-*   Ajouter des tests unitaires
-    
-*   Implémenter un chiffrement plus robuste
-    
-*   Ajouter une interface graphique (GTK, ncurses, etc.)
-    
-*   Support multi‑comptes
+- Makefile
+- Tests unitaires
+- Chiffrement plus robuste
+- Interface utilisateur améliorée
