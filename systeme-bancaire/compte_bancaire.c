@@ -1,12 +1,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h>
 
 #define PASSWORD "test123"
-#define SOLDE_FICHIER "solde.txt"
+#define SOLDE_FICHIER "solde.enc"
 #define HISTORIQUE_FICHIER "historique.txt"
+#define CLE "CLE123"   // clé de chiffrement XOR
 
 float solde = 0.0;
+
+// Désactiver l'affichage du terminal
+void disableEcho() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t);
+    t.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
+
+// Réactiver l'affichage du terminal
+void enableEcho() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t);
+    t.c_lflag |= ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
 
 // Nettoyer le buffer
 void viderBuffer() {
@@ -38,35 +57,51 @@ float lireMontant() {
     return montant;
 }
 
-// Charger le solde depuis un fichier
-void chargerSolde() {
-    FILE *f = fopen(SOLDE_FICHIER, "r");
-    if (f == NULL) {
-        solde = 0.0;
-        return;
+// Chiffrement XOR simple
+void xorBuffer(char *data, int len) {
+    int keyLen = strlen(CLE);
+    for (int i = 0; i < len; i++) {
+        data[i] ^= CLE[i % keyLen];
     }
-    fscanf(f, "%f", &solde);
-    fclose(f);
 }
 
-// Sauvegarder le solde dans un fichier
+// Sauvegarder le solde chiffré
 void sauvegarderSolde() {
-    FILE *f = fopen(SOLDE_FICHIER, "w");
-    if (f == NULL) {
+    FILE *f = fopen(SOLDE_FICHIER, "wb");
+    if (!f) {
         printf("Erreur : impossible de sauvegarder le solde.\n");
         return;
     }
-    fprintf(f, "%.2f", solde);
+
+    char buffer[50];
+    snprintf(buffer, sizeof(buffer), "%.2f", solde);
+
+    xorBuffer(buffer, strlen(buffer));
+    fwrite(buffer, 1, strlen(buffer), f);
+
     fclose(f);
+}
+
+// Charger le solde chiffré
+void chargerSolde() {
+    FILE *f = fopen(SOLDE_FICHIER, "rb");
+    if (!f) {
+        solde = 0.0;
+        return;
+    }
+
+    char buffer[50] = {0};
+    int len = fread(buffer, 1, sizeof(buffer), f);
+    fclose(f);
+
+    xorBuffer(buffer, len);
+    solde = atof(buffer);
 }
 
 // Ajouter une transaction à l'historique
 void ajouterHistorique(const char *message, float montant) {
     FILE *f = fopen(HISTORIQUE_FICHIER, "a");
-    if (f == NULL) {
-        printf("Erreur : impossible d'écrire dans l'historique.\n");
-        return;
-    }
+    if (!f) return;
     fprintf(f, "%s : %.2f $\n", message, montant);
     fclose(f);
 }
@@ -114,7 +149,7 @@ void retirer() {
 
 void afficherHistorique() {
     FILE *f = fopen(HISTORIQUE_FICHIER, "r");
-    if (f == NULL) {
+    if (!f) {
         printf("Aucune transaction enregistrée.\n");
         return;
     }
@@ -129,18 +164,27 @@ void afficherHistorique() {
     fclose(f);
 }
 
+// Mot de passe masqué avec des *
 int demanderMotDePasse() {
     char entree[50];
+    int i = 0;
+    char c;
 
     printf("Mot de passe : ");
-    scanf("%49s", entree);
-    viderBuffer();
+    disableEcho();
 
-    if (strcmp(entree, PASSWORD) == 0) {
-        return 1;
+    while ((c = getchar()) != '\n' && c != EOF) {
+        if (i < 49) {
+            entree[i++] = c;
+            printf("*");
+        }
     }
+    entree[i] = '\0';
 
-    return 0;
+    enableEcho();
+    printf("\n");
+
+    return strcmp(entree, PASSWORD) == 0;
 }
 
 int main() {
@@ -162,7 +206,7 @@ int main() {
         return 1;
     }
 
-    // Charger le solde
+    // Charger le solde chiffré
     chargerSolde();
 
     int choix = 0;
