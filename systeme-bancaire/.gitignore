@@ -1,0 +1,5 @@
+banque
+*.o
+*.out
+*.swp
+*.tmp
