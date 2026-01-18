@@ -3,18 +3,19 @@
 CC= gcc
 CFLAGS= -Wall -Wextra -Werror -std=c11
 
-TARGET = SecureBank/compte_bancaire
-SRC = SecureBank/compte_bancaire.c
-OBJ = $(SRC:.c=.o)
+DIR = SecureBank
+SRC = $(DIR)/src/compte_bancaire.c
+OBJ = $(DIR)/build/compte_bancaire.o
+TARGET = $(DIR)/bin/compte_bancaire
 
 .PHONY: all debug clean run format help
 
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $@
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
 
-$.o: %.c
+$(DIR)/build/%.o: $(DIR)/src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 debug:
@@ -24,7 +25,7 @@ format:
 	clang-format -i $(SRC)
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f $(OBJ) $(TARGET)
 
 run: $(TARGET)
 	./$(TARGET)
