@@ -2,28 +2,118 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <curl/curl.h>
 #include <termios.h>
 #include <unistd.h>
 #include "auth.h"
 
-extern void disableEcho();
-extern void enableEcho();
+// Désactiver l'affichage du terminal
+void disableEcho() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t);
+    t.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
 
+// Réactiver l'affichage du terminal
+void enableEcho() {
+    struct termios t;
+    tcgetattr(STDIN_FILENO, &t);
+    t.c_lflag |= ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
+
+// Génération du code 2FA
 static int generate_code() {
-    return rand() % 900000 + 100000; // code entre 100000 et 999999
+    return rand() % 900000 + 100000;
 }
 
-void send_email_code(const char *email, int code) {
-    char command[512];
+/* ---------------- SMTP libcurl ---------------- */
 
-    snprintf(command, sizeof(command),
-        "echo \"Votre code de validation est : %d\" | sendmail %s",
-        code, email
-    );
+struct upload_status {
+    int lines_read;
+};
 
-    system(command);
+static const char *payload_text[3];
+
+static size_t payload_source(void *ptr, size_t size, size_t nmemb, void *userp) {
+    (void)size;
+    (void)nmemb;
+
+    struct upload_status *upload_ctx = (struct upload_status *)userp;
+
+    const char *data = payload_text[upload_ctx->lines_read];
+
+    if (data) {
+        size_t len = strlen(data);
+        memcpy(ptr, data, len);
+        upload_ctx->lines_read++;
+        return len;
+    }
+
+    return 0;
 }
 
+void send_email_code(const char *dest_email, int code) {
+    CURL *curl;
+    CURLcode res = CURLE_OK;
+
+    char subject[128];
+    char body[256];
+    char to_header[256];
+
+    snprintf(subject, sizeof(subject), "Subject: Code de validation SecureBank\r\n");
+    snprintf(body, sizeof(body), "Votre code de validation est : %d\r\n", code);
+    snprintf(to_header, sizeof(to_header), "To: <%s>\r\n", dest_email);
+
+    payload_text[0] = subject;
+    payload_text[1] = body;
+    payload_text[2] = NULL;
+
+    struct upload_status upload_ctx = { 0 };
+
+    char *smtp_user = getenv("SMTP_USER");
+    char *smtp_pass = getenv("SMTP_PASS");
+
+    if (!smtp_user || !smtp_pass) {
+        printf("Erreur : SMTP_USER ou SMTP_PASS non définies.\n");
+        return;
+    }
+
+    curl = curl_easy_init();
+    if (curl) {
+        curl_easy_setopt(curl, CURLOPT_USERNAME, smtp_user);
+        curl_easy_setopt(curl, CURLOPT_PASSWORD, smtp_pass);
+
+        curl_easy_setopt(curl, CURLOPT_URL, "smtp://smtp.office365.com:587");
+        curl_easy_setopt(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL);
+
+        char from_header[256];
+        snprintf(from_header, sizeof(from_header), "<%s>", smtp_user);
+        curl_easy_setopt(curl, CURLOPT_MAIL_FROM, from_header);
+
+        struct curl_slist *recipients = NULL;
+        recipients = curl_slist_append(recipients, to_header);
+        curl_easy_setopt(curl, CURLOPT_MAIL_RCPT, recipients);
+
+        curl_easy_setopt(curl, CURLOPT_READFUNCTION, payload_source);
+        curl_easy_setopt(curl, CURLOPT_READDATA, &upload_ctx);
+        curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
+
+        curl_easy_setopt(curl, CURLOPT_USE_SSL, (long)CURLUSESSL_ALL);
+
+        res = curl_easy_perform(curl);
+
+        if (res != CURLE_OK) {
+            printf("Erreur SMTP: %s\n", curl_easy_strerror(res));
+        }
+
+        curl_slist_free_all(recipients);
+        curl_easy_cleanup(curl);
+    }
+}
+
+/* ---------------- Authentification ---------------- */
 
 int authenticate_user() {
     char password[50];
@@ -31,69 +121,55 @@ int authenticate_user() {
     int i = 0;
     char ch;
     int code, user_code;
+    int c;
 
-    printf("Mot de passe : "); 
-    disableEcho(); // masque l'affichage 
-    
-    while ((ch = getchar()) != '\n' && ch != EOF) { 
-	if (i < 49) { 
-		password[i++] = ch; 
-		printf("*"); // affiche une étoile 
-	} 
-} 
-password[i] = '\0'; 
+    printf("Mot de passe : ");
+    disableEcho();
 
-enableEcho(); // réactive l'affichage 
-printf("\n"); 
-int c;
-while ((c = getchar()) != '\n' && c != EOF) {}
+    while ((ch = getchar()) != '\n' && ch != EOF) {
+        if (i < 49) {
+            password[i++] = ch;
+            printf("*");
+        }
+    }
+    password[i] = '\0';
 
-// Vérification du mot de passe 
-if (strcmp(password, "test123") != 0) { 
-	printf("Mot de passe incorrect.\n");
-	
-	// vider le buffer pour éviter les lectures parasites
-	int c3;
-	while ((c3 = getchar()) != '\n' && c3 != EOF) {}
+    enableEcho();
+    printf("\n");
 
-	return 0;
-}
+    while ((c = getchar()) != '\n' && c != EOF) {}
 
-// vider le buffer avant de lire l'email
-int c2;
-while ((c2 = getchar()) != '\n' && c2 != EOF) {}
-printf("Email : ");
-scanf("%99s", email);
+    if (strcmp(password, "test123") != 0) {
+        printf("Mot de passe incorrect.\n");
+        return 0;
+    }
 
-// vider le buffer après scanf
-while ((c = getchar()) != '\n' && c != EOF) {}
+    printf("Email : ");
+    scanf("%99s", email);
 
-// Générer le code
-srand(time(NULL));
-code = generate_code();
+    while ((c = getchar()) != '\n' && c != EOF) {}
 
-// Envoi du code par email
-send_email_code(email, code);
-    
-printf("Un code de validation a été envoyé à %s\n", email);
-printf("(DEBUG: code = %d)\n", code);
+    srand(time(NULL));
+    code = generate_code();
 
-// Vérification du code
-printf("Entrez le code reçu : ");
-while (scanf("%d", &user_code) !=1) {
-    printf("Entrée invalide. Veuillez entrer un code numérique.\n");
-    while ((c = getchar()) != '\n' && c != EOF) {} // vider buffer
+    printf("Envoi du code à %s...\n", email);
+    send_email_code(email, code);
+    printf("Code envoyé.\n");
+
     printf("Entrez le code reçu : ");
-}
+    while (scanf("%d", &user_code) != 1) {
+        printf("Entrée invalide. Veuillez entrer un code numérique.\n");
+        while ((c = getchar()) != '\n' && c != EOF) {}
+        printf("Entrez le code reçu : ");
+    }
 
-// vider le buffer après lecture
-while ((c = getchar()) != '\n' && c != EOF) {} 
+    while ((c = getchar()) != '\n' && c != EOF) {}
 
-if (user_code != code) {
-    printf("Code incorrect.\n");
-    return 0;
-}
+    if (user_code != code) {
+        printf("Code incorrect.\n");
+        return 0;
+    }
 
-printf("Authentification réussie.\n");
-return 1;
+    printf("Authentification réussie.\n");
+    return 1;
 }

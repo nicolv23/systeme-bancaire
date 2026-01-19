@@ -11,22 +11,6 @@
 
 float solde = 0.0;
 
-// Désactiver l'affichage du terminal
-void disableEcho() {
-  struct termios t;
-  tcgetattr(STDIN_FILENO, &t);
-  t.c_lflag &= ~ECHO;
-  tcsetattr(STDIN_FILENO, TCSANOW, &t);
-}
-
-// Réactiver l'affichage du terminal
-void enableEcho() {
-  struct termios t;
-  tcgetattr(STDIN_FILENO, &t);
-  t.c_lflag |= ECHO;
-  tcsetattr(STDIN_FILENO, TCSANOW, &t);
-}
-
 // Nettoyer le buffer
 void viderBuffer() {
   int c;

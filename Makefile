@@ -1,7 +1,9 @@
 # Makefile pour le projet système bancaire
 
 CC= gcc
-CFLAGS= -Wall -Wextra -Werror -std=c11
+CFLAGS= -Wall -Wextra -I./SecureBank/src
+LDFLAGS= -lcurl
+
 INCLUDES = -ISecureBank/include
 
 DIR = SecureBank
@@ -14,7 +16,7 @@ TARGET = $(DIR)/bin/compte_bancaire
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
 $(DIR)/build/%.o: $(DIR)/src/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
