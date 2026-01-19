@@ -2,10 +2,11 @@
 
 CC= gcc
 CFLAGS= -Wall -Wextra -Werror -std=c11
+INCLUDES = -ISecureBank/include
 
 DIR = SecureBank
-SRC = $(DIR)/src/compte_bancaire.c
-OBJ = $(DIR)/build/compte_bancaire.o
+SRC = $(DIR)/src/compte_bancaire.c $(DIR)/src/auth.c
+OBJ = $(DIR)/build/compte_bancaire.o $(DIR)/build/auth.o
 TARGET = $(DIR)/bin/compte_bancaire
 
 .PHONY: all debug clean run format help
@@ -16,10 +17,10 @@ $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
 
 $(DIR)/build/%.o: $(DIR)/src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 debug:
-	$(CC) $(CFLAGS) -g $(SRC) -o $(TARGET)
+	$(CC) $(CFLAGS) $(INCLUDES) -g $(SRC) -o $(TARGET)
 
 format:
 	clang-format -i $(SRC)

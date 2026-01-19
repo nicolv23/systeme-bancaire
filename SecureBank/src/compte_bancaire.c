@@ -3,8 +3,8 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include "auth.h"
 
-#define PASSWORD "test123"
 #define SOLDE_FICHIER "solde.enc"
 #define HISTORIQUE_FICHIER "historique.txt"
 #define CLE "CLE123" // clé de chiffrement XOR
@@ -164,47 +164,16 @@ void afficherHistorique() {
   fclose(f);
 }
 
-// Mot de passe masqué avec des *
-int demanderMotDePasse() {
-  char entree[50];
-  int i = 0;
-  char c;
-
-  printf("Mot de passe : ");
-  disableEcho();
-
-  while ((c = getchar()) != '\n' && c != EOF) {
-    if (i < 49) {
-      entree[i++] = c;
-      printf("*");
-    }
-  }
-  entree[i] = '\0';
-
-  enableEcho();
-  printf("\n");
-
-  return strcmp(entree, PASSWORD) == 0;
-}
-
 int main() {
   printf("=== Système bancaire sécurisé ===\n");
 
-  // Mot de passe
-  int essais = 3;
-  while (essais > 0) {
-    if (demanderMotDePasse()) {
-      printf("Accès autorisé.\n");
-      break;
-    }
-    essais--;
-    printf("Mot de passe incorrect. Il reste %d essais.\n", essais);
+  // Authentification code par email
+  if( !authenticate_user()) {
+      printf("Accès refusé.\n");
+      return 1;
   }
-
-  if (essais == 0) {
-    printf("Accès refusé.\n");
-    return 1;
-  }
+  
+  printf("Accès autorisé.\n");
 
   // Charger le solde chiffré
   chargerSolde();
