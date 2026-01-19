@@ -5,7 +5,6 @@
 #include <unistd.h>
 #include "auth.h"
 
-#define PASSWORD "test123"
 #define SOLDE_FICHIER "solde.enc"
 #define HISTORIQUE_FICHIER "historique.txt"
 #define CLE "CLE123" // clé de chiffrement XOR
