@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include "auth.h"
+
 #include "../include/users.h"
 #include "../include/db.h"
 
@@ -120,9 +121,8 @@ void send_email_code(const char *dest_email, int code) {
 
 /* ---------------- Authentification ---------------- */
 
-int authenticate_user() {
+int authenticate_user(char *email_out) {
     char password[50];
-    char email[100];
     int i = 0;
     char ch;
     int code, user_code;
@@ -130,7 +130,7 @@ int authenticate_user() {
 
     // --- Étape 1 : Email ---
     printf("Email : ");
-    scanf("%99s", email);
+    scanf("%99s", email_out);
 
     while ((c = getchar()) != '\n' && c != EOF) {}
 
@@ -149,15 +149,13 @@ int authenticate_user() {
     enableEcho();
     printf("\n");
 
-    while ((c = getchar()) != '\n' && c != EOF) {}
-
     // --- Étape 3 : Vérification SQLite ---
-    if (!user_exists(email)) {
+    if (!user_exists(email_out)) {
         printf("Cet utilisateur n'existe pas.\n");
         return 0;
     }
 
-    if (!verify_password(email, password)) {
+    if (!verify_password(email_out, password)) {
         printf("Mot de passe incorrect.\n");
         return 0;
     }
@@ -168,8 +166,8 @@ int authenticate_user() {
     srand(time(NULL));
     code = generate_code();
 
-    printf("Envoi du code à %s...\n", email);
-    send_email_code(email, code);
+    printf("Envoi du code à %s...\n", email_out);
+    send_email_code(email_out, code);
     printf("Code envoyé.\n");
 
     printf("Entrez le code reçu : ");

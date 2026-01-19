@@ -6,20 +6,19 @@
 // Ouvre la base de données (data/securebank.db)
 int db_open(sqlite3 **db);
 
-// Initialise la base : crée la table users si elle n'existe pas
+// Initialise la base : crée les tables users, comptes, transactions
 int db_init();
 
-// Charger le solde courant
+// Charger le solde courant depuis SQLite
 float charger_solde(const char *email);
 
-// Sauvegarder le solde à la fin de la session
+// Sauvegarder le solde dans SQLite
 void sauvegarder_solde(const char *email, float solde);
 
-// Ajouter les transactions
+// Ajouter une transaction dans SQLite
 void ajouter_transaction(const char *email, const char *type, float montant);
 
-// Afficher tout l'historique des transactions
+// Afficher l'historique des transactions depuis SQLite
 void afficher_historique(const char *email);
-
 
 #endif

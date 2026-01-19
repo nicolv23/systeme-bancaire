@@ -3,232 +3,184 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+
 #include "auth.h"
 #include "users.h"
 #include "db.h"
 
-#define SOLDE_FICHIER "solde.enc"
-#define HISTORIQUE_FICHIER "historique.txt"
-#define CLE "CLE123" // clé de chiffrement XOR
-
 float solde = 0.0;
 
-// Nettoyer le buffer
+/* ------------------ UTILITAIRES ------------------ */
+
 void viderBuffer() {
-  int c;
-  while ((c = getchar()) != '\n' && c != EOF) {
-  }
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF) {}
 }
 
-// Lire un entier avec validation
 int lireEntier() {
-  int valeur;
-  while (scanf("%d", &valeur) != 1) {
-    printf("Entrée invalide. Veuillez entrer un nombre entier.\n");
+    int valeur;
+    while (scanf("%d", &valeur) != 1) {
+        printf("Entrée invalide. Veuillez entrer un nombre entier.\n");
+        viderBuffer();
+        printf("Votre choix : ");
+    }
     viderBuffer();
-    printf("Votre choix : ");
-  }
-  viderBuffer();
-  return valeur;
+    return valeur;
 }
 
-// Lire un montant avec validation
 float lireMontant() {
-  float montant;
-  while (scanf("%f", &montant) != 1) {
-    printf("Entrée invalide. Veuillez entrer un montant numérique.\n");
+    float montant;
+    while (scanf("%f", &montant) != 1) {
+        printf("Entrée invalide. Veuillez entrer un montant numérique.\n");
+        viderBuffer();
+        printf("Montant : ");
+    }
     viderBuffer();
-    printf("Montant : ");
-  }
-  viderBuffer();
-  return montant;
+    return montant;
 }
 
-// Chiffrement XOR simple
-void xorBuffer(char *data, int len) {
-  int keyLen = strlen(CLE);
-  for (int i = 0; i < len; i++) {
-    data[i] ^= CLE[i % keyLen];
-  }
+/* ------------------ FONCTIONS BANCAIRES (SQLite) ------------------ */
+
+void afficherSolde() {
+    printf("\nSolde actuel : %.2f $\n", solde);
 }
 
-// Sauvegarder le solde chiffré
-void sauvegarderSolde() {
-  FILE *f = fopen(SOLDE_FICHIER, "wb");
-  if (!f) {
-    printf("Erreur : impossible de sauvegarder le solde.\n");
-    return;
-  }
+void deposer(const char *email) {
+    printf("Montant à déposer : ");
+    float montant = lireMontant();
 
-  char buffer[50];
-  snprintf(buffer, sizeof(buffer), "%.2f", solde);
+    if (montant <= 0) {
+        printf("Erreur : le montant doit être positif.\n");
+        return;
+    }
 
-  xorBuffer(buffer, strlen(buffer));
-  fwrite(buffer, 1, strlen(buffer), f);
+    solde += montant;
+    sauvegarder_solde(email, solde);
+    ajouter_transaction(email, "Dépôt", montant);
 
-  fclose(f);
+    printf("Dépôt de %.2f $ effectué.\n", montant);
 }
 
-// Charger le solde chiffré
-void chargerSolde() {
-  FILE *f = fopen(SOLDE_FICHIER, "rb");
-  if (!f) {
-    solde = 0.0;
-    return;
-  }
+void retirer(const char *email) {
+    printf("Montant à retirer : ");
+    float montant = lireMontant();
 
-  char buffer[50] = {0};
-  int len = fread(buffer, 1, sizeof(buffer), f);
-  fclose(f);
+    if (montant <= 0) {
+        printf("Erreur : le montant doit être positif.\n");
+        return;
+    }
 
-  xorBuffer(buffer, len);
-  solde = atof(buffer);
+    if (montant > solde) {
+        printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde);
+        return;
+    }
+
+    solde -= montant;
+    sauvegarder_solde(email, solde);
+    ajouter_transaction(email, "Retrait", montant);
+
+    printf("Retrait de %.2f $ effectué.\n", montant);
 }
 
-// Ajouter une transaction à l'historique
-void ajouterHistorique(const char *message, float montant) {
-  FILE *f = fopen(HISTORIQUE_FICHIER, "a");
-  if (!f)
-    return;
-  fprintf(f, "%s : %.2f $\n", message, montant);
-  fclose(f);
+void afficherHistorique(const char *email) {
+    afficher_historique(email);
 }
 
-void afficherSolde() { printf("\nSolde actuel : %.2f $\n", solde); }
-
-void deposer() {
-  printf("Montant à déposer : ");
-  float montant = lireMontant();
-
-  if (montant <= 0) {
-    printf("Erreur : le montant doit être positif.\n");
-    return;
-  }
-
-  solde += montant;
-  sauvegarderSolde();
-  ajouterHistorique("Dépôt", montant);
-
-  printf("Dépôt de %.2f $ effectué.\n", montant);
-}
-
-void retirer() {
-  printf("Montant à retirer : ");
-  float montant = lireMontant();
-
-  if (montant <= 0) {
-    printf("Erreur : le montant doit être positif.\n");
-    return;
-  }
-
-  if (montant > solde) {
-    printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde);
-    return;
-  }
-
-  solde -= montant;
-  sauvegarderSolde();
-  ajouterHistorique("Retrait", montant);
-
-  printf("Retrait de %.2f $ effectué.\n", montant);
-}
-
-void afficherHistorique() {
-  FILE *f = fopen(HISTORIQUE_FICHIER, "r");
-  if (!f) {
-    printf("Aucune transaction enregistrée.\n");
-    return;
-  }
-
-  printf("\n=== Historique des transactions ===\n");
-
-  char ligne[256];
-  while (fgets(ligne, sizeof(ligne), f)) {
-    printf("%s", ligne);
-  }
-
-  fclose(f);
-}
+/* ------------------ PROGRAMME PRINCIPAL ------------------ */
 
 int main(int argc, char *argv[]) {
-  if (!db_init()) {
-    printf("Erreur : impossible d'initialiser la base de données.\n");
-    return 1;
-}
 
-  // Mode création d'utilisateur 
-  if (argc == 4 && strcmp(argv[1], "--add-user") == 0) { 
-	if (add_user(argv[2], argv[3])) { 
-		printf("Utilisateur %s créé avec succès.\n", argv[2]); 
-	} else { 
-		printf("Erreur : impossible de créer l'utilisateur.\n"); 
-	} return 0; 
-  }  
-
-  printf("=== Système bancaire sécurisé ===\n");
-
-  // Authentification code par email
-  if( !authenticate_user()) {
-      printf("Accès refusé.\n");
-      return 1;
-  }
-  
-  printf("Accès autorisé.\n");
-
-  // Charger le solde chiffré
-  chargerSolde();
-
-  int choix = 0;
-
-  do {
-    printf("\n--- Menu principal ---\n");
-    printf("1. Afficher le solde\n");
-    printf("2. Déposer de l'argent\n");
-    printf("3. Retirer de l'argent\n");
-    printf("4. Afficher l'historique\n");
-    printf("5. Quitter\n");
-    printf("6. Créer un nouvel utilisateur\n");
-    printf("Votre choix : ");
-
-    choix = lireEntier();
-
-    switch (choix) {
-    case 1:
-      afficherSolde();
-      break;
-    case 2:
-      deposer();
-      break;
-    case 3:
-      retirer();
-      break;
-    case 4:
-      afficherHistorique();
-      break;
-    case 5:
-      printf("Merci d'avoir utilisé le système bancaire.\n");
-      break;
-    case 6: {
-      char email[100];
-      char password[50];
-
-      printf("Veuillez ajouter votre email : ");
-      scanf("%99s", email);
-      viderBuffer();
-
-      if (add_user(email, password)) {
-	  printf("Utilisateur créé avec succès.\n");
-      } else {
-	  printf("Erreur: impossible de créer cet utilisateur.\n");
-      }
-      break;
+    if (!db_init()) {
+        printf("Erreur : impossible d'initialiser la base de données.\n");
+        return 1;
     }
 
-    default:
-      printf("Choix invalide.\n");
+    /* Mode création d'utilisateur via Makefile */
+    if (argc == 4 && strcmp(argv[1], "--add-user") == 0) {
+        if (add_user(argv[2], argv[3])) {
+            printf("Utilisateur %s créé avec succès.\n", argv[2]);
+        } else {
+            printf("Erreur : impossible de créer l'utilisateur.\n");
+        }
+        return 0;
     }
 
-  } while (choix != 5);
+    printf("=== Système bancaire sécurisé ===\n");
 
-  return 0;
+    char email[100];
+
+    /* Authentification */
+    if (!authenticate_user(email)) {
+        printf("Accès refusé.\n");
+        return 1;
+    }
+
+    printf("Accès autorisé.\n");
+
+    /* Charger le solde depuis SQLite */
+    solde = charger_solde(email);
+
+    int choix = 0;
+
+    do {
+        printf("\n--- Menu principal ---\n");
+        printf("1. Afficher le solde\n");
+        printf("2. Déposer de l'argent\n");
+        printf("3. Retirer de l'argent\n");
+        printf("4. Afficher l'historique\n");
+        printf("5. Quitter\n");
+        printf("6. Créer un nouvel utilisateur\n");
+        printf("Votre choix : ");
+
+        choix = lireEntier();
+
+        switch (choix) {
+
+        case 1:
+            afficherSolde();
+            break;
+
+        case 2:
+            deposer(email);
+            break;
+
+        case 3:
+            retirer(email);
+            break;
+
+        case 4:
+            afficherHistorique(email);
+            break;
+
+        case 5:
+            printf("Merci d'avoir utilisé le système bancaire.\n");
+            break;
+
+        case 6: {
+            char new_email[100];
+            char password[50];
+
+            printf("Veuillez ajouter votre email : ");
+            scanf("%99s", new_email);
+            viderBuffer();
+
+            printf("Veuillez ajouter un mot de passe : ");
+            scanf("%49s", password);
+            viderBuffer();
+
+            if (add_user(new_email, password)) {
+                printf("Utilisateur créé avec succès.\n");
+            } else {
+                printf("Erreur : impossible de créer cet utilisateur.\n");
+            }
+            break;
+        }
+
+        default:
+            printf("Choix invalide.\n");
+        }
+
+    } while (choix != 5);
+
+    return 0;
 }
