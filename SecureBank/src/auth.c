@@ -6,7 +6,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include "auth.h"
-
+#include "../include/users.h"
+#include "../include/db.h"
 // Désactiver l'affichage du terminal
 void disableEcho() {
     struct termios t;
@@ -123,6 +124,13 @@ int authenticate_user() {
     int code, user_code;
     int c;
 
+    // --- Étape 1 : Email ---
+    printf("Email : ");
+    scanf("%99s", email);
+
+    while ((c = getchar()) != '\n' && c != EOF) {}
+
+    // --- Étape 2 : Mot de passe masqué ---
     printf("Mot de passe : ");
     disableEcho();
 
@@ -139,16 +147,20 @@ int authenticate_user() {
 
     while ((c = getchar()) != '\n' && c != EOF) {}
 
-    if (strcmp(password, "test123") != 0) {
+    // --- Étape 3 : Vérification SQLite ---
+    if (!user_exists(email)) {
+        printf("Cet utilisateur n'existe pas.\n");
+        return 0;
+    }
+
+    if (!verify_password(email, password)) {
         printf("Mot de passe incorrect.\n");
         return 0;
     }
 
-    printf("Email : ");
-    scanf("%99s", email);
+    printf("Mot de passe correct.\n");
 
-    while ((c = getchar()) != '\n' && c != EOF) {}
-
+    // --- Étape 4 : Code 2FA ---
     srand(time(NULL));
     code = generate_code();
 
