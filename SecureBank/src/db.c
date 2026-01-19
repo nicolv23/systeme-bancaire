@@ -30,9 +30,22 @@ int db_init() {
         "password_hash TEXT NOT NULL"
         ");";
 
-    if (sqlite3_exec(db, sql, 0, 0, &err_msg) != SQLITE_OK) {
-        fprintf(stderr, "Erreur création table: %s\n", err_msg);
-        sqlite3_free(err_msg);
+	"CREATE TABLE IF NOT EXISTS comptes ("
+	" email TEXT PRIMARY KEY," 
+	" solde REAL DEFAULT 0" 
+	");" 
+
+	"CREATE TABLE IF NOT EXISTS transactions (" 
+	" id INTEGER PRIMARY KEY AUTOINCREMENT," 
+	" email TEXT," 
+	" type TEXT," 
+	" montant REAL," 
+	" date TEXT DEFAULT CURRENT_TIMESTAMP" 
+	");";
+
+    if (sqlite3_exec(db, sql, NULL, NULL, &err) != SQLITE_OK) {
+        fprintf(stderr, "Erreur SQL: %s\n", err);
+        sqlite3_free(err);
         sqlite3_close(db);
         return 0;
     }
