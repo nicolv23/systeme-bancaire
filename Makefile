@@ -1,12 +1,23 @@
 # Makefile pour le projet système bancaire
 
 CC= gcc
-CFLAGS= -Wall -Wextra -Werror -std=c11
-INCLUDES = -ISecureBank/include
+CFLAGS= -Wall -Wextra -I./SecureBank/src -ISecureBank/include -I/usr/include
+LDFLAGS= -lcurl -lsqlite3 -lssl -lcrypto
 
 DIR = SecureBank
-SRC = $(DIR)/src/compte_bancaire.c $(DIR)/src/auth.c
-OBJ = $(DIR)/build/compte_bancaire.o $(DIR)/build/auth.o
+
+SRC = \
+	$(DIR)/src/compte_bancaire.c \
+	$(DIR)/src/auth.c \
+	$(DIR)/src/users.c \
+	$(DIR)/src/db.c
+
+OBJ = \
+	$(DIR)/build/compte_bancaire.o \
+	$(DIR)/build/auth.o \
+	$(DIR)/build/users.o \
+	$(DIR)/build/db.o
+
 TARGET = $(DIR)/bin/compte_bancaire
 
 .PHONY: all debug clean run format help
@@ -14,13 +25,13 @@ TARGET = $(DIR)/bin/compte_bancaire
 all: $(TARGET)
 
 $(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OBJ) -o $(TARGET) $(LDFLAGS)
 
 $(DIR)/build/%.o: $(DIR)/src/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 debug:
-	$(CC) $(CFLAGS) $(INCLUDES) -g $(SRC) -o $(TARGET)
+	$(CC) $(CFLAGS) -g $(SRC) -o $(TARGET)
 
 format:
 	clang-format -i $(SRC)
@@ -30,6 +41,13 @@ clean:
 
 run: $(TARGET)
 	./$(TARGET)
+
+add-user:
+	@if [ -z "$(email)" ] || [ -z "$(password)" ]; then \
+        echo "Usage : make add-user email=EMAIL password=PASSWORD"; \
+        exit 1; \
+	fi; \
+	./SecureBank/bin/compte_bancaire --add-user "$(email)" "$(password)"
 
 help:
 	@echo "Commandes disponibles :"

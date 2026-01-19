@@ -3,3 +3,4 @@ banque
 *.out
 *.swp
 *.tmp
+data/
