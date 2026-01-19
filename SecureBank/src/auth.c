@@ -8,6 +8,8 @@
 #include "auth.h"
 #include "../include/users.h"
 #include "../include/db.h"
+
+
 // Désactiver l'affichage du terminal
 void disableEcho() {
     struct termios t;
@@ -26,7 +28,9 @@ void enableEcho() {
 
 // Génération du code 2FA
 static int generate_code() {
-    return rand() % 900000 + 100000;
+    int code = rand() % 900000 + 100000;
+    printf("Code généré (debug) : %d\n", code);
+    return code;
 }
 
 /* ---------------- SMTP libcurl ---------------- */

@@ -151,6 +151,10 @@ void afficherHistorique() {
 }
 
 int main(int argc, char *argv[]) {
+  if (!db_init()) {
+    printf("Erreur : impossible d'initialiser la base de données.\n");
+    return 1;
+}
 
   // Mode création d'utilisateur 
   if (argc == 4 && strcmp(argv[1], "--add-user") == 0) { 
@@ -218,6 +222,8 @@ int main(int argc, char *argv[]) {
 	  printf("Erreur: impossible de créer cet utilisateur.\n");
       }
       break;
+    }
+
     default:
       printf("Choix invalide.\n");
     }
