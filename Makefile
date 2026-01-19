@@ -42,6 +42,13 @@ clean:
 run: $(TARGET)
 	./$(TARGET)
 
+add-user:
+	@if [ -z "$(email)" ] || [ -z "$(password)" ]; then \
+        echo "Usage : make add-user email=EMAIL password=PASSWORD"; \
+        exit 1; \
+	fi; \
+	./SecureBank/bin/compte_bancaire --add-user "$(email)" "$(password)"
+
 help:
 	@echo "Commandes disponibles :"
 	@echo "make        -> compile"

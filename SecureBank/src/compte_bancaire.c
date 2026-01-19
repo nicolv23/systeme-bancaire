@@ -4,6 +4,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include "auth.h"
+#include "users.h"
+#include "db.h"
 
 #define SOLDE_FICHIER "solde.enc"
 #define HISTORIQUE_FICHIER "historique.txt"
@@ -148,7 +150,17 @@ void afficherHistorique() {
   fclose(f);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
+
+  // Mode création d'utilisateur 
+  if (argc == 4 && strcmp(argv[1], "--add-user") == 0) { 
+	if (add_user(argv[2], argv[3])) { 
+		printf("Utilisateur %s créé avec succès.\n", argv[2]); 
+	} else { 
+		printf("Erreur : impossible de créer l'utilisateur.\n"); 
+	} return 0; 
+  }  
+
   printf("=== Système bancaire sécurisé ===\n");
 
   // Authentification code par email
@@ -171,6 +183,7 @@ int main() {
     printf("3. Retirer de l'argent\n");
     printf("4. Afficher l'historique\n");
     printf("5. Quitter\n");
+    printf("6. Créer un nouvel utilisateur\n");
     printf("Votre choix : ");
 
     choix = lireEntier();
@@ -190,6 +203,20 @@ int main() {
       break;
     case 5:
       printf("Merci d'avoir utilisé le système bancaire.\n");
+      break;
+    case 6: {
+      char email[100];
+      char password[50];
+
+      printf("Veuillez ajouter votre email : ");
+      scanf("%99s", email);
+      viderBuffer();
+
+      if (add_user(email, password)) {
+	  printf("Utilisateur créé avec succès.\n");
+      } else {
+	  printf("Erreur: impossible de créer cet utilisateur.\n");
+      }
       break;
     default:
       printf("Choix invalide.\n");
