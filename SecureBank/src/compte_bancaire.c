@@ -221,8 +221,12 @@ int main(int argc, char *argv[]) {
         printf("3. Retirer de l'argent\n");
         printf("4. Afficher l'historique\n");
         printf("5. Quitter\n");
-        printf("6. Créer un nouvel utilisateur\n");
-	printf("7. Faire un virement bancaire\n");
+        printf("6. Faire un virement bancaire\n");
+	
+	if (strcmp(email, "admin@gmail.com") == 0) {
+	    printf("7. Faire un virement bancaire\n");
+	}
+
         printf("Votre choix : ");
 
         choix = lireEntier();
@@ -249,29 +253,35 @@ int main(int argc, char *argv[]) {
             printf("Merci d'avoir utilisé le système bancaire.\n");
             break;
 
-        case 6: {
-            char new_email[100];
-            char password[50];
-
-            printf("Veuillez ajouter votre email : ");
-            scanf("%99s", new_email);
-            viderBuffer();
-
-            printf("Veuillez ajouter un mot de passe : ");
-            scanf("%49s", password);
-            viderBuffer();
-
-            if (add_user(new_email, password)) {
-                printf("Utilisateur créé avec succès.\n");
-            } else {
-                printf("Erreur : impossible de créer cet utilisateur.\n");
-            }
-            break;
-        }
-
-	case 7:
+	case 6:
 	    virement(email);
 	    break;
+
+	case 7: 
+	    if (strcmp(email, "admin@gmail.com") != 0) { 
+		printf("Erreur : accès réservé à l'administrateur.\n"); 
+	  	break; 
+	    } 
+
+	// Création utilisateur 
+	{ 
+		char new_email[100]; 
+		char password[50]; 
+
+		printf("Veuillez ajouter votre email : "); 
+		scanf("%99s", new_email); 
+		viderBuffer(); 
+
+		printf("Veuillez ajouter un mot de passe : "); 
+		scanf("%49s", password); 
+		viderBuffer(); 
+
+		if (add_user(new_email, password)) { 
+			printf("Utilisateur créé avec succès.\n"); 
+		} else { 
+			printf("Erreur : impossible de créer cet utilisateur.\n"); 
+		} 
+	} break;
 
         default:
             printf("Choix invalide.\n");
