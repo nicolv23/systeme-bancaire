@@ -41,7 +41,16 @@ int db_init() {
         " type TEXT,"
         " montant REAL,"
         " date TEXT DEFAULT CURRENT_TIMESTAMP"
-        ");";
+        ");"
+	"CREATE TABLE IF NOT EXISTS limites_journalieres ("
+   	" email TEXT,"
+    	" date TEXT,"
+    	" depot REAL DEFAULT 0,"
+    	" retrait REAL DEFAULT 0,"
+    	" virement REAL DEFAULT 0,"
+    	" PRIMARY KEY (email, date)"
+	");"
+
 
     if (sqlite3_exec(db, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
         fprintf(stderr, "Erreur SQL: %s\n", err_msg);
