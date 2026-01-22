@@ -179,6 +179,7 @@ int main(int argc, char *argv[]) {
         printf("4. Afficher l'historique\n");
         printf("5. Quitter\n");
         printf("6. Créer un nouvel utilisateur\n");
+	printf("7. Faire un virement bancaire\n")
         printf("Votre choix : ");
 
         choix = lireEntier();
@@ -224,6 +225,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
+
+	case 7:
+	    virement(email);
+	    break;
 
         default:
             printf("Choix invalide.\n");
