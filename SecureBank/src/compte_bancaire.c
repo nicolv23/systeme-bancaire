@@ -86,6 +86,55 @@ void afficherHistorique(const char *email) {
     afficher_historique(email);
 }
 
+void virement(const char *email_source) {
+    char email_dest[100];
+    float montant;
+
+    printf("Email du destinataire : ");
+    scanf("%99s", email_dest);
+    viderBuffer();
+
+    if (strcmp(email_source, email_dest) == 0) {
+        printf("Erreur : vous ne pouvez pas vous envoyer un virement à vous-même.\n");
+        return;
+    }
+
+    if (!user_exists(email_dest)) {
+        printf("Erreur : ce destinataire n'existe pas.\n");
+        return;
+    }
+
+    printf("Montant à transférer : ");
+    montant = lireMontant();
+
+    if (montant <= 0) {
+        printf("Erreur : le montant doit être positif.\n");
+        return;
+    }
+
+    float solde_source = solde;
+
+    if (montant > solde_source) {
+        printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde_source);
+        return;
+    }
+
+    /* --- Débit du compte source --- */
+    solde_source -= montant;
+    solde = solde_source;
+    sauvegarder_solde(email_source, solde_source);
+    ajouter_transaction(email_source, "Virement envoyé", montant);
+
+    /* --- Crédit du compte destinataire --- */
+    float solde_dest = charger_solde(email_dest);
+    solde_dest += montant;
+    sauvegarder_solde(email_dest, solde_dest);
+    ajouter_transaction(email_dest, "Virement reçu", montant);
+
+    printf("Virement de %.2f $ envoyé à %s.\n", montant, email_dest);
+}
+
+
 /* ------------------ PROGRAMME PRINCIPAL ------------------ */
 
 int main(int argc, char *argv[]) {
