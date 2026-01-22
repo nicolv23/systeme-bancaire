@@ -54,10 +54,25 @@ void deposer(const char *email) {
         return;
     }
 
-    solde += montant;
-    sauvegarder_solde(email, solde);
-    ajouter_transaction(email, "Dépôt", montant);
+    // --- Limites quotidiennes --- 
+    char date[20]; 
+    get_date_aujourdhui(date, sizeof(date)); 
+    
+    float depot_jour, retrait_jour, virement_jour; 
+    charger_limites(email, date, &depot_jour, &retrait_jour, &virement_jour); 
 
+    if (depot_jour + montant > LIMITE_DEPOT_MAX) { 
+	printf("Erreur : limite quotidienne de dépôt atteinte (max %.2f $).\n", (double)LIMITE_DEPOT_MAX); 
+	return; 
+    } 
+
+    // --- Dépôt --- 
+    solde += montant; 
+    sauvegarder_solde(email, solde); 
+    ajouter_transaction(email, "Dépôt", montant); 
+
+    // --- Mise à jour des limites --- 
+    maj_limites(email, date, depot_jour + montant, retrait_jour, virement_jour); 
     printf("Dépôt de %.2f $ effectué.\n", montant);
 }
 
@@ -75,9 +90,25 @@ void retirer(const char *email) {
         return;
     }
 
+    // --- Limites quotidiennes ---
+    char date[20];
+    get_date_aujourdhui(date, sizeof(date));
+
+    float depot_jour, retrait_jour, virement_jour;
+    charger_limites(email, date, &depot_jour, &retrait_jour, &virement_jour);
+
+    if (retrait_jour + montant > LIMITE_RETRAIT_MAX) {
+        printf("Erreur : limite quotidienne de retrait atteinte (max %.2f $).\n", (double)LIMITE_RETRAIT_MAX);
+        return;
+    }
+
+    // --- Retrait ---
     solde -= montant;
     sauvegarder_solde(email, solde);
     ajouter_transaction(email, "Retrait", montant);
+
+    // --- Mise à jour des limites ---
+    maj_limites(email, date, depot_jour, retrait_jour + montant, virement_jour);
 
     printf("Retrait de %.2f $ effectué.\n", montant);
 }
@@ -112,24 +143,36 @@ void virement(const char *email_source) {
         return;
     }
 
-    float solde_source = solde;
-
-    if (montant > solde_source) {
-        printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde_source);
+    if (montant > solde) {
+        printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde);
         return;
     }
 
-    /* --- Débit du compte source --- */
-    solde_source -= montant;
-    solde = solde_source;
-    sauvegarder_solde(email_source, solde_source);
+    // --- Limites quotidiennes ---
+    char date[20];
+    get_date_aujourdhui(date, sizeof(date));
+
+    float depot_jour, retrait_jour, virement_jour;
+    charger_limites(email_source, date, &depot_jour, &retrait_jour, &virement_jour);
+
+    if (virement_jour + montant > LIMITE_VIREMENT_MAX) {
+        printf("Erreur : limite quotidienne de virement atteinte (max %.2f $).\n", (double)LIMITE_VIREMENT_MAX);
+        return;
+    }
+
+    // --- Débit du compte source ---
+    solde -= montant;
+    sauvegarder_solde(email_source, solde);
     ajouter_transaction(email_source, "Virement envoyé", montant);
 
-    /* --- Crédit du compte destinataire --- */
+    // --- Crédit du destinataire ---
     float solde_dest = charger_solde(email_dest);
     solde_dest += montant;
     sauvegarder_solde(email_dest, solde_dest);
     ajouter_transaction(email_dest, "Virement reçu", montant);
+
+    // --- Mise à jour des limites ---
+    maj_limites(email_source, date, depot_jour, retrait_jour, virement_jour + montant);
 
     printf("Virement de %.2f $ envoyé à %s.\n", montant, email_dest);
 }

@@ -50,8 +50,7 @@ int db_init() {
     	" retrait REAL DEFAULT 0,"
     	" virement REAL DEFAULT 0,"
     	" PRIMARY KEY (email, date)"
-	");"
-
+	");";
 
     if (sqlite3_exec(db, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
         fprintf(stderr, "Erreur SQL: %s\n", err_msg);
