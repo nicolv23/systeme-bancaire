@@ -21,4 +21,17 @@ void ajouter_transaction(const char *email, const char *type, float montant);
 // Afficher l'historique des transactions depuis SQLite
 void afficher_historique(const char *email);
 
+// Limites quotidiennes
+void get_date_aujourdhui(char *buffer, size_t size);
+void charger_limites(const char *email, const char *date,
+                     float *depot, float *retrait, float *virement);
+void maj_limites(const char *email, const char *date,
+                 float depot, float retrait, float virement);
+
+// Constantes limites
+#define LIMITE_DEPOT_MAX 1000
+#define LIMITE_RETRAIT_MAX 500
+#define LIMITE_VIREMENT_MAX 300
+
+
 #endif

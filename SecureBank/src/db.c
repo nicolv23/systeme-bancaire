@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sqlite3.h>
 #include "../include/db.h"
+#include <time.h>
 
 #define DB_PATH "SecureBank/data/securebank.db"
 
@@ -62,6 +63,70 @@ int db_init() {
     sqlite3_close(db);
     return 1;
 }
+
+void get_date_aujourdhui(char *buffer, size_t size) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    strftime(buffer, size, "%Y-%m-%d", tm_info);
+}
+
+void charger_limites(const char *email, const char *date,
+                     float *depot, float *retrait, float *virement) {
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+
+    *depot = *retrait = *virement = 0;
+
+    if (db_open(&db) != SQLITE_OK)
+        return;
+
+    const char *sql =
+        "SELECT depot, retrait, virement FROM limites_journalieres "
+        "WHERE email = ? AND date = ?;";
+
+    sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_bind_text(stmt, 1, email, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, date, -1, SQLITE_STATIC);
+
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        *depot = sqlite3_column_double(stmt, 0);
+        *retrait = sqlite3_column_double(stmt, 1);
+        *virement = sqlite3_column_double(stmt, 2);
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+}
+
+void maj_limites(const char *email, const char *date,
+                 float depot, float retrait, float virement) {
+    sqlite3 *db;
+    sqlite3_stmt *stmt;
+
+    if (db_open(&db) != SQLITE_OK)
+        return;
+
+    const char *sql =
+        "INSERT INTO limites_journalieres (email, date, depot, retrait, virement) "
+        "VALUES (?, ?, ?, ?, ?) "
+        "ON CONFLICT(email, date) DO UPDATE SET "
+        "depot = excluded.depot, "
+        "retrait = excluded.retrait, "
+        "virement = excluded.virement;";
+
+    sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_bind_text(stmt, 1, email, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, date, -1, SQLITE_STATIC);
+    sqlite3_bind_double(stmt, 3, depot);
+    sqlite3_bind_double(stmt, 4, retrait);
+    sqlite3_bind_double(stmt, 5, virement);
+
+    sqlite3_step(stmt);
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+}
+
 
 /* ------------------ SOLDE ------------------ */
 
