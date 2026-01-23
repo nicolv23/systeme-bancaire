@@ -54,10 +54,25 @@ void deposer(const char *email) {
         return;
     }
 
-    solde += montant;
-    sauvegarder_solde(email, solde);
-    ajouter_transaction(email, "Dépôt", montant);
+    // --- Limites quotidiennes --- 
+    char date[20]; 
+    get_date_aujourdhui(date, sizeof(date)); 
+    
+    float depot_jour, retrait_jour, virement_jour; 
+    charger_limites(email, date, &depot_jour, &retrait_jour, &virement_jour); 
 
+    if (depot_jour + montant > LIMITE_DEPOT_MAX) { 
+	printf("Erreur : limite quotidienne de dépôt atteinte (max %.2f $).\n", (double)LIMITE_DEPOT_MAX); 
+	return; 
+    } 
+
+    // --- Dépôt --- 
+    solde += montant; 
+    sauvegarder_solde(email, solde); 
+    ajouter_transaction(email, "Dépôt", montant); 
+
+    // --- Mise à jour des limites --- 
+    maj_limites(email, date, depot_jour + montant, retrait_jour, virement_jour); 
     printf("Dépôt de %.2f $ effectué.\n", montant);
 }
 
@@ -75,9 +90,25 @@ void retirer(const char *email) {
         return;
     }
 
+    // --- Limites quotidiennes ---
+    char date[20];
+    get_date_aujourdhui(date, sizeof(date));
+
+    float depot_jour, retrait_jour, virement_jour;
+    charger_limites(email, date, &depot_jour, &retrait_jour, &virement_jour);
+
+    if (retrait_jour + montant > LIMITE_RETRAIT_MAX) {
+        printf("Erreur : limite quotidienne de retrait atteinte (max %.2f $).\n", (double)LIMITE_RETRAIT_MAX);
+        return;
+    }
+
+    // --- Retrait ---
     solde -= montant;
     sauvegarder_solde(email, solde);
     ajouter_transaction(email, "Retrait", montant);
+
+    // --- Mise à jour des limites ---
+    maj_limites(email, date, depot_jour, retrait_jour + montant, virement_jour);
 
     printf("Retrait de %.2f $ effectué.\n", montant);
 }
@@ -85,6 +116,96 @@ void retirer(const char *email) {
 void afficherHistorique(const char *email) {
     afficher_historique(email);
 }
+
+void virement(const char *email_source) {
+    char email_dest[100];
+    float montant;
+
+    printf("Email du destinataire : ");
+    scanf("%99s", email_dest);
+    viderBuffer();
+
+    if (strcmp(email_source, email_dest) == 0) {
+        printf("Erreur : vous ne pouvez pas vous envoyer un virement à vous-même.\n");
+        return;
+    }
+
+    if (!user_exists(email_dest)) {
+        printf("Erreur : ce destinataire n'existe pas.\n");
+        return;
+    }
+
+    printf("Montant à transférer : ");
+    montant = lireMontant();
+
+    if (montant <= 0) {
+        printf("Erreur : le montant doit être positif.\n");
+        return;
+    }
+
+    if (montant > solde) {
+        printf("Erreur : fonds insuffisants. Solde actuel : %.2f $\n", solde);
+        return;
+    }
+
+    /* ------------------ Limites quotidiennes ------------------ */
+    char date[20];
+    get_date_aujourdhui(date, sizeof(date));
+
+    float depot_jour, retrait_jour, virement_jour;
+    charger_limites(email_source, date, &depot_jour, &retrait_jour, &virement_jour);
+
+    if (virement_jour + montant > LIMITE_VIREMENT_MAX) {
+        printf("Erreur : limite quotidienne de virement atteinte (max %.2f $).\n", (double)LIMITE_VIREMENT_MAX);
+        return;
+    }
+
+    /* ------------------ Demander si programmation ------------------ */
+    char choix[10];
+
+    while (1) {
+        printf("Voulez-vous programmer ce virement ? (oui/non) : ");
+        scanf("%9s", choix);
+        viderBuffer();
+
+        if (strcmp(choix, "oui") == 0 || strcmp(choix, "Oui") == 0)
+            break;
+
+        if (strcmp(choix, "non") == 0 || strcmp(choix, "Non") == 0) {
+            /* ---- Exécution immédiate ---- */
+
+            solde -= montant;
+            sauvegarder_solde(email_source, solde);
+            ajouter_transaction(email_source, "Virement envoyé", montant);
+
+            float solde_dest = charger_solde(email_dest);
+            solde_dest += montant;
+            sauvegarder_solde(email_dest, solde_dest);
+            ajouter_transaction(email_dest, "Virement reçu", montant);
+
+            maj_limites(email_source, date, depot_jour, retrait_jour, virement_jour + montant);
+
+            printf("Virement immédiat de %.2f $ envoyé à %s.\n", montant, email_dest);
+            return;
+        }
+
+        printf("Réponse invalide. Veuillez répondre par 'oui' ou 'non'.\n");
+    }
+
+    /* ------------------ Programmation du virement ------------------ */
+
+    char heure[6];
+    printf("Heure d'exécution (HH:MM) : ");
+    scanf("%5s", heure);
+    viderBuffer();
+
+    if (programmer_virement(email_source, email_dest, montant, date, heure)) {
+        printf("Virement programmé pour %s à %s.\n", date, heure);
+    } else {
+        printf("Erreur : impossible de programmer le virement.\n");
+    }
+}
+
 
 /* ------------------ PROGRAMME PRINCIPAL ------------------ */
 
@@ -94,6 +215,9 @@ int main(int argc, char *argv[]) {
         printf("Erreur : impossible d'initialiser la base de données.\n");
         return 1;
     }
+
+    /* Exécuter les virements programmés */ 
+    executer_virements_programmes();
 
     /* Mode création d'utilisateur via Makefile */
     if (argc == 4 && strcmp(argv[1], "--add-user") == 0) {
@@ -129,7 +253,12 @@ int main(int argc, char *argv[]) {
         printf("3. Retirer de l'argent\n");
         printf("4. Afficher l'historique\n");
         printf("5. Quitter\n");
-        printf("6. Créer un nouvel utilisateur\n");
+        printf("6. Faire un virement bancaire\n");
+	
+	if (strcmp(email, "admin@gmail.com") == 0) {
+	    printf("7. Créer un nouveau utilisateur\n");
+	}
+
         printf("Votre choix : ");
 
         choix = lireEntier();
@@ -156,25 +285,35 @@ int main(int argc, char *argv[]) {
             printf("Merci d'avoir utilisé le système bancaire.\n");
             break;
 
-        case 6: {
-            char new_email[100];
-            char password[50];
+	case 6:
+	    virement(email);
+	    break;
 
-            printf("Veuillez ajouter votre email : ");
-            scanf("%99s", new_email);
-            viderBuffer();
+	case 7: 
+	    if (strcmp(email, "admin@gmail.com") != 0) { 
+		printf("Erreur : accès réservé à l'administrateur.\n"); 
+	  	break; 
+	    } 
 
-            printf("Veuillez ajouter un mot de passe : ");
-            scanf("%49s", password);
-            viderBuffer();
+	// Création utilisateur 
+	{ 
+		char new_email[100]; 
+		char password[50]; 
 
-            if (add_user(new_email, password)) {
-                printf("Utilisateur créé avec succès.\n");
-            } else {
-                printf("Erreur : impossible de créer cet utilisateur.\n");
-            }
-            break;
-        }
+		printf("Veuillez ajouter votre email : "); 
+		scanf("%99s", new_email); 
+		viderBuffer(); 
+
+		printf("Veuillez ajouter un mot de passe : "); 
+		scanf("%49s", password); 
+		viderBuffer(); 
+
+		if (add_user(new_email, password)) { 
+			printf("Utilisateur créé avec succès.\n"); 
+		} else { 
+			printf("Erreur : impossible de créer cet utilisateur.\n"); 
+		} 
+	} break;
 
         default:
             printf("Choix invalide.\n");
