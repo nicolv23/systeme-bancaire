@@ -9,6 +9,13 @@ int db_open(sqlite3 **db);
 // Initialise la base : crée les tables users, comptes, transactions
 int db_init();
 
+int programmer_virement(const char *email_source, const char *email_dest, float montant,
+                        const char *date_exec, const char *heure_exec);
+
+void executer_virements_programmes();
+
+void get_heure_actuelle(char *buffer, size_t size);
+
 // Charger le solde courant depuis SQLite
 float charger_solde(const char *email);
 

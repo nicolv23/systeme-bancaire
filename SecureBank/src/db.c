@@ -9,8 +9,12 @@
 
 /* ------------------ OUVERTURE DB ------------------ */
 
-int db_open(sqlite3 **db) {
-    return sqlite3_open(DB_PATH, db);
+sqlite3 *db = NULL;
+
+int db_open(sqlite3 **db_ptr) {
+    int rc = sqlite3_open(DB_PATH, db_ptr);
+    db = *db_ptr;   // on met à jour la variable globale
+    return rc;
 }
 
 /* ------------------ INITIALISATION DB ------------------ */
@@ -237,11 +241,20 @@ void afficher_historique(const char *email) {
 int programmer_virement(const char *email_source, const char *email_dest, float montant,
                         const char *date_exec, const char *heure_exec) 
 {
+    sqlite3 *db;
     sqlite3_stmt *stmt;
-    const char *sql = "INSERT INTO virements_programmes (email_source, email_dest, montant, date_exec, heure_exec) VALUES (?, ?, ?, ?, ?)";
 
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+    if (db_open(&db) != SQLITE_OK)
         return 0;
+
+    const char *sql =
+        "INSERT INTO virements_programmes (email_source, email_dest, montant, date_exec, heure_exec) "
+        "VALUES (?, ?, ?, ?, ?)";
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK) {
+        sqlite3_close(db);
+        return 0;
+    }
 
     sqlite3_bind_text(stmt, 1, email_source, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 2, email_dest, -1, SQLITE_STATIC);
@@ -250,9 +263,13 @@ int programmer_virement(const char *email_source, const char *email_dest, float 
     sqlite3_bind_text(stmt, 5, heure_exec, -1, SQLITE_STATIC);
 
     int ok = (sqlite3_step(stmt) == SQLITE_DONE);
+
     sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
     return ok;
 }
+
 
 void executer_virements_programmes() {
     char date[20], heure[6];
@@ -284,8 +301,17 @@ void executer_virements_programmes() {
         }
 
         // Supprimer le virement programmé
-        sqlite3_exec(db, "DELETE FROM virements_programmes WHERE id = ?", NULL, NULL, NULL);
+        char sql_del[100];
+	sprintf(sql_del, "DELETE FROM virements_programmes WHERE id = %d", id);
+	sqlite3_exec(db, sql_del, NULL, NULL, NULL);
     }
 
     sqlite3_finalize(stmt);
 }
+
+void get_heure_actuelle(char *buffer, size_t size) {
+    time_t t = time(NULL);
+    struct tm *tm_info = localtime(&t);
+    strftime(buffer, size, "%H:%M", tm_info);
+}
+
