@@ -50,7 +50,16 @@ int db_init() {
     	" retrait REAL DEFAULT 0,"
     	" virement REAL DEFAULT 0,"
     	" PRIMARY KEY (email, date)"
+	");"
+	"CREATE TABLE IF NOT EXISTS virements_programmes ("
+    	" id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    	" email_source TEXT NOT NULL,"
+    	" email_dest TEXT NOT NULL,"
+    	" montant REAL NOT NULL,"
+    	" date_exec TEXT NOT NULL,"  // Format YYYY-MM-DD
+   	" heure_exec TEXT NOT NULL"  // Format HH:MM 
 	");";
+
 
     if (sqlite3_exec(db, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
         fprintf(stderr, "Erreur SQL: %s\n", err_msg);
@@ -224,3 +233,24 @@ void afficher_historique(const char *email) {
     sqlite3_finalize(stmt);
     sqlite3_close(db);
 }
+
+int programmer_virement(const char *email_source, const char *email_dest, float montant,
+                        const char *date_exec, const char *heure_exec) 
+{
+    sqlite3_stmt *stmt;
+    const char *sql = "INSERT INTO virements_programmes (email_source, email_dest, montant, date_exec, heure_exec) VALUES (?, ?, ?, ?, ?)";
+
+    if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
+        return 0;
+
+    sqlite3_bind_text(stmt, 1, email_source, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, email_dest, -1, SQLITE_STATIC);
+    sqlite3_bind_double(stmt, 3, montant);
+    sqlite3_bind_text(stmt, 4, date_exec, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, heure_exec, -1, SQLITE_STATIC);
+
+    int ok = (sqlite3_step(stmt) == SQLITE_DONE);
+    sqlite3_finalize(stmt);
+    return ok;
+}
+
