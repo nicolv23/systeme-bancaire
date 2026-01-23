@@ -148,17 +148,57 @@ void virement(const char *email_source) {
         return;
     }
 
-    // Demander l'heure de programmation
+    /* ------------------ Limites quotidiennes ------------------ */
+    char date[20];
+    get_date_aujourdhui(date, sizeof(date));
+
+    float depot_jour, retrait_jour, virement_jour;
+    charger_limites(email_source, date, &depot_jour, &retrait_jour, &virement_jour);
+
+    if (virement_jour + montant > LIMITE_VIREMENT_MAX) {
+        printf("Erreur : limite quotidienne de virement atteinte (max %.2f $).\n", (double)LIMITE_VIREMENT_MAX);
+        return;
+    }
+
+    /* ------------------ Demander si programmation ------------------ */
+    char choix[10];
+
+    while (1) {
+        printf("Voulez-vous programmer ce virement ? (oui/non) : ");
+        scanf("%9s", choix);
+        viderBuffer();
+
+        if (strcmp(choix, "oui") == 0 || strcmp(choix, "Oui") == 0)
+            break;
+
+        if (strcmp(choix, "non") == 0 || strcmp(choix, "Non") == 0) {
+            /* ---- Exécution immédiate ---- */
+
+            solde -= montant;
+            sauvegarder_solde(email_source, solde);
+            ajouter_transaction(email_source, "Virement envoyé", montant);
+
+            float solde_dest = charger_solde(email_dest);
+            solde_dest += montant;
+            sauvegarder_solde(email_dest, solde_dest);
+            ajouter_transaction(email_dest, "Virement reçu", montant);
+
+            maj_limites(email_source, date, depot_jour, retrait_jour, virement_jour + montant);
+
+            printf("Virement immédiat de %.2f $ envoyé à %s.\n", montant, email_dest);
+            return;
+        }
+
+        printf("Réponse invalide. Veuillez répondre par 'oui' ou 'non'.\n");
+    }
+
+    /* ------------------ Programmation du virement ------------------ */
+
     char heure[6];
     printf("Heure d'exécution (HH:MM) : ");
     scanf("%5s", heure);
     viderBuffer();
 
-    // Récupérer la date du jour
-    char date[20];
-    get_date_aujourdhui(date, sizeof(date));
-
-    // Enregistrer le virement programmé
     if (programmer_virement(email_source, email_dest, montant, date, heure)) {
         printf("Virement programmé pour %s à %s.\n", date, heure);
     } else {
@@ -216,7 +256,7 @@ int main(int argc, char *argv[]) {
         printf("6. Faire un virement bancaire\n");
 	
 	if (strcmp(email, "admin@gmail.com") == 0) {
-	    printf("7. Faire un virement bancaire\n");
+	    printf("7. Créer un nouveau utilisateur\n");
 	}
 
         printf("Votre choix : ");
