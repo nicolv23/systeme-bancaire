@@ -148,33 +148,22 @@ void virement(const char *email_source) {
         return;
     }
 
-    // --- Limites quotidiennes ---
+    // Demander l'heure de programmation
+    char heure[6];
+    printf("Heure d'exécution (HH:MM) : ");
+    scanf("%5s", heure);
+    viderBuffer();
+
+    // Récupérer la date du jour
     char date[20];
     get_date_aujourdhui(date, sizeof(date));
 
-    float depot_jour, retrait_jour, virement_jour;
-    charger_limites(email_source, date, &depot_jour, &retrait_jour, &virement_jour);
-
-    if (virement_jour + montant > LIMITE_VIREMENT_MAX) {
-        printf("Erreur : limite quotidienne de virement atteinte (max %.2f $).\n", (double)LIMITE_VIREMENT_MAX);
-        return;
+    // Enregistrer le virement programmé
+    if (programmer_virement(email_source, email_dest, montant, date, heure)) {
+        printf("Virement programmé pour %s à %s.\n", date, heure);
+    } else {
+        printf("Erreur : impossible de programmer le virement.\n");
     }
-
-    // --- Débit du compte source ---
-    solde -= montant;
-    sauvegarder_solde(email_source, solde);
-    ajouter_transaction(email_source, "Virement envoyé", montant);
-
-    // --- Crédit du destinataire ---
-    float solde_dest = charger_solde(email_dest);
-    solde_dest += montant;
-    sauvegarder_solde(email_dest, solde_dest);
-    ajouter_transaction(email_dest, "Virement reçu", montant);
-
-    // --- Mise à jour des limites ---
-    maj_limites(email_source, date, depot_jour, retrait_jour, virement_jour + montant);
-
-    printf("Virement de %.2f $ envoyé à %s.\n", montant, email_dest);
 }
 
 
@@ -186,6 +175,9 @@ int main(int argc, char *argv[]) {
         printf("Erreur : impossible d'initialiser la base de données.\n");
         return 1;
     }
+
+    /* Exécuter les virements programmés */ 
+    executer_virements_programmes();
 
     /* Mode création d'utilisateur via Makefile */
     if (argc == 4 && strcmp(argv[1], "--add-user") == 0) {

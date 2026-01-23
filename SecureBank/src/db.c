@@ -254,3 +254,38 @@ int programmer_virement(const char *email_source, const char *email_dest, float 
     return ok;
 }
 
+void executer_virements_programmes() {
+    char date[20], heure[6];
+    get_date_aujourdhui(date, sizeof(date));
+    get_heure_actuelle(heure, sizeof(heure));
+
+    sqlite3_stmt *stmt;
+    const char *sql = "SELECT id, email_source, email_dest, montant FROM virements_programmes WHERE date_exec = ? AND heure_exec <= ?";
+
+    sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_bind_text(stmt, 1, date, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, heure, -1, SQLITE_STATIC);
+
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        int id = sqlite3_column_int(stmt, 0);
+        const char *src = (const char*)sqlite3_column_text(stmt, 1);
+        const char *dst = (const char*)sqlite3_column_text(stmt, 2);
+        float montant = sqlite3_column_double(stmt, 3);
+
+        // Exécuter le virement réel
+        float solde_src = charger_solde(src);
+        float solde_dst = charger_solde(dst);
+
+        if (solde_src >= montant) {
+            sauvegarder_solde(src, solde_src - montant);
+            sauvegarder_solde(dst, solde_dst + montant);
+            ajouter_transaction(src, "Virement programmé envoyé", montant);
+            ajouter_transaction(dst, "Virement programmé reçu", montant);
+        }
+
+        // Supprimer le virement programmé
+        sqlite3_exec(db, "DELETE FROM virements_programmes WHERE id = ?", NULL, NULL, NULL);
+    }
+
+    sqlite3_finalize(stmt);
+}
